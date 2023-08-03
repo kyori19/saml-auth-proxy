@@ -1,6 +1,6 @@
-[![Test](https://github.com/itzg/saml-auth-proxy/actions/workflows/test.yml/badge.svg)](https://github.com/itzg/saml-auth-proxy/actions/workflows/test.yml)
-[![](https://img.shields.io/github/release/itzg/saml-auth-proxy.svg?style=flat)](https://github.com/itzg/saml-auth-proxy/releases/latest)
-[![](https://img.shields.io/docker/pulls/itzg/saml-auth-proxy.svg?style=flat)](https://hub.docker.com/r/itzg/saml-auth-proxy)
+[![Test](https://github.com/kyori19/saml-auth-proxy/actions/workflows/test.yml/badge.svg)](https://github.com/kyori19/saml-auth-proxy/actions/workflows/test.yml)
+[![](https://img.shields.io/github/release/kyori19/saml-auth-proxy.svg?style=flat)](https://github.com/kyori19/saml-auth-proxy/releases/latest)
+[![](https://img.shields.io/docker/pulls/kyori/saml-auth-proxy.svg?style=flat)](https://hub.docker.com/r/kyori/saml-auth-proxy)
 
 Provides a SAML SP authentication proxy for backend web services
 

@@ -103,7 +103,7 @@ func Start(ctx context.Context, logger *zap.Logger, cfg *Config) error {
 	app := http.HandlerFunc(proxy.handler)
 	http.Handle("/saml/", middleware)
 	http.Handle("/_health", http.HandlerFunc(proxy.health))
-	http.Handle("/", middleware.RequireAccount(app))
+	http.Handle("/login", middleware.RequireAccount(app))
 
 	logger.
 		With(zap.String("baseUrl", cfg.BaseUrl)).
