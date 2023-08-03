@@ -1,6 +1,4 @@
 project_name: saml-auth-proxy
-gomod:
-  proxy: true
 builds:
 - env:
   - CGO_ENABLED=0
@@ -12,10 +10,12 @@ builds:
     - amd64
     - arm
 archives:
-  - replacements:
-      darwin: macosx
-      386: x86_32
-      amd64: x86_64
+  - name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{- title .Os }}_
+      {{- if eq .Arch "darwin" }}macosx
+      {{- else if eq .Arch "386" }}i386
+      {{- else if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
     format: binary
     files:
       - none*
