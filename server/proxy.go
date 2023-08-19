@@ -76,29 +76,28 @@ func (p *proxy) health(respOutWriter http.ResponseWriter, _ *http.Request) {
 
 func (p *proxy) handler(respOutWriter http.ResponseWriter, reqIn *http.Request) {
 
-	session := samlsp.SessionFromContext(reqIn.Context())
-	sessionClaims, ok := session.(samlsp.JWTSessionClaims)
-	if session != nil && !ok {
+	sessionClaims, ok := getSessionClaims(reqIn)
+	if !ok {
 		p.logger.Error("session is not expected type")
 		respOutWriter.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	// authUsing, authorized := p.authorized(&sessionClaims)
-	// if !authorized {
-	// 	p.logger.Debug("Responding Unauthorized")
-	// 	respOutWriter.WriteHeader(http.StatusUnauthorized)
-	// 	return
-	// }
+	authUsing, authorized := p.authorized(sessionClaims)
+	if !authorized {
+		p.logger.Debug("Responding Unauthorized")
+		respOutWriter.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 
-	// if p.config.AuthVerify && reqIn.URL.Path == p.config.AuthVerifyPath {
-	// 	p.logger.
-	// 		With(zap.String("remoteAddr", reqIn.RemoteAddr)).
-	// 		Debug("Responding with 204 to auth verify request")
-	// 	p.addHeaders(sessionClaims, respOutWriter.Header())
-	// 	respOutWriter.WriteHeader(204)
-	// 	return
-	// }
+	if p.config.AuthVerify && reqIn.URL.Path == p.config.AuthVerifyPath {
+		p.logger.
+			With(zap.String("remoteAddr", reqIn.RemoteAddr)).
+			Debug("Responding with 204 to auth verify request")
+		p.addHeaders(sessionClaims, respOutWriter.Header())
+		respOutWriter.WriteHeader(204)
+		return
+	}
 
 	resolved, err := p.backendUrl.Parse(reqIn.URL.Path)
 	if err != nil {
@@ -134,8 +133,8 @@ func (p *proxy) handler(respOutWriter http.ResponseWriter, reqIn *http.Request) 
 		}
 	}
 
-	if session != nil {
-		p.checkForNewAuth(&sessionClaims)
+	if sessionClaims != nil {
+		p.checkForNewAuth(sessionClaims)
 
 		p.addHeaders(sessionClaims, reqOut.Header)
 
@@ -157,9 +156,9 @@ func (p *proxy) handler(respOutWriter http.ResponseWriter, reqIn *http.Request) 
 	}
 	protoParts := strings.Split(reqIn.Proto, "/")
 	reqOut.Header.Set(HeaderForwardedProto, strings.ToLower(protoParts[0]))
-	// if authUsing != "" {
-	// 	reqOut.Header.Set(HeaderAuthorizedUsing, authUsing)
-	// }
+	if authUsing != "" {
+		reqOut.Header.Set(HeaderAuthorizedUsing, authUsing)
+	}
 
 	respIn, err := p.client.Do(reqOut)
 	if err != nil {
@@ -178,7 +177,21 @@ func (p *proxy) handler(respOutWriter http.ResponseWriter, reqIn *http.Request) 
 	}
 }
 
-func (p *proxy) addHeaders(sessionClaims samlsp.JWTSessionClaims, headers http.Header) {
+func getSessionClaims(reqIn *http.Request) (*samlsp.JWTSessionClaims, bool) {
+	session := samlsp.SessionFromContext(reqIn.Context())
+	if session == nil {
+		return nil, true
+	}
+
+	sessionClaims, ok := session.(samlsp.JWTSessionClaims)
+	return &sessionClaims, ok
+}
+
+func (p *proxy) addHeaders(sessionClaims *samlsp.JWTSessionClaims, headers http.Header) {
+	if sessionClaims == nil {
+		return
+	}
+
 	if p.config.AttributeHeaderMappings != nil {
 		for attr, hdr := range p.config.AttributeHeaderMappings {
 			if values, ok := sessionClaims.GetAttributes()[attr]; ok {
@@ -230,6 +243,10 @@ func (p *proxy) checkForNewAuth(sessionClaims *samlsp.JWTSessionClaims) {
 // If authorization was not configured the returned string is empty.
 func (p *proxy) authorized(sessionClaims *samlsp.JWTSessionClaims) (string, bool) {
 	if p.config.AuthorizeAttribute != "" {
+		if sessionClaims == nil {
+			return "", false
+		}
+
 		values, exists := sessionClaims.GetAttributes()[p.config.AuthorizeAttribute]
 		if !exists {
 			p.logger.Debug("AuthorizeAttribute not present in session claims")

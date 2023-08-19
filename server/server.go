@@ -103,7 +103,7 @@ func Start(ctx context.Context, logger *zap.Logger, cfg *Config) error {
 	app := http.HandlerFunc(proxy.handler)
 	http.Handle("/saml/", middleware)
 	http.Handle("/_health", http.HandlerFunc(proxy.health))
-	http.Handle("/", authHandler(middleware, app))
+	http.Handle("/", authHandler(middleware, app, cfg.InitiateSessionPath))
 
 	logger.
 		With(zap.String("baseUrl", cfg.BaseUrl)).
@@ -113,7 +113,7 @@ func Start(ctx context.Context, logger *zap.Logger, cfg *Config) error {
 	return http.ListenAndServe(cfg.Bind, nil)
 }
 
-func authHandler(middleware *samlsp.Middleware, handler http.Handler) http.Handler {
+func authHandler(middleware *samlsp.Middleware, handler http.Handler, initiateSessionPath string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := middleware.Session.GetSession(r)
 		if session != nil {
@@ -122,7 +122,12 @@ func authHandler(middleware *samlsp.Middleware, handler http.Handler) http.Handl
 			return
 		}
 		if err == samlsp.ErrNoSession {
-			if r.URL.Path == "/login" {
+			if initiateSessionPath == "" {
+				middleware.HandleStartAuthFlow(w, r)
+				return
+			}
+
+			if r.URL.Path == initiateSessionPath {
 				middleware.HandleStartAuthFlow(w, r)
 				return
 			}
